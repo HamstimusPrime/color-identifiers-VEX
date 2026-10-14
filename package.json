@@ -1,10 +1,10 @@
 {
-  "name": "vscode-color-identifiers-mode",
+  "name": "vscode-color-identifiers-VEX",
   "displayName": "Color Identifiers",
   "description": "Gives each identifier a distinct color.",
   "version": "1.4.0",
   "license": "GPL-3.0-or-later",
-  "publisher": "MatthewNespor",
+  "publisher": "Mohammed",
   "repository": {
     "type": "git",
     "url": "https://www.github.com/mnespor/vscode-color-identifiers-mode.git"
@@ -73,6 +73,13 @@
           "type": "array",
           "default": [],
           "markdownDescription": "Don't colorize files in these [languages](https://code.visualstudio.com/docs/languages/identifiers#_known-language-identifiers)."
+        },
+        "colorIdentifiersMode.regexLanguages": {
+          "type": "array",
+          "default": [
+            "vex"
+          ],
+          "markdownDescription": "Languages with no semantic tokens. For these, variables are found with text patterns (VEX syntax)."
         },
         "colorIdentifiersMode.method": {
           "type": "string",

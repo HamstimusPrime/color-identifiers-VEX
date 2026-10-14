@@ -1,7 +1,8 @@
 import * as vscode from 'vscode'
 import * as murmurhash from 'murmurhash'
 import { rangesByName } from './rangesByName'
-import { colors, ignoredLanguages, method, Method, bigFileSize } from "./configuration"
+import { regexRanges } from './regexTokens'
+import { colors, ignoredLanguages, regexLanguages, method, Method, bigFileSize } from "./configuration"
 
 let rangeLists: vscode.Range[][] = colors.map(_ => [])
 
@@ -24,8 +25,12 @@ export async function colorize(editor: vscode.TextEditor): Promise<boolean> {
 	const tokensData: vscode.SemanticTokens | undefined = await vscode.commands.executeCommand('vscode.provideDocumentSemanticTokens', uri)
 	vscode.window.activeColorTheme
 	rangeLists = colors.map(_ => [])
-	if (tokensData == null || legend == null) { return false }
-	const rangesBySymbolName = rangesByName(tokensData, legend, editor)
+	const hasTokens = tokensData != null && legend != null && tokensData.data.length > 0
+	const useRegex = !hasTokens && regexLanguages.has(editor.document.languageId)
+	if (!hasTokens && !useRegex) { return false }
+	const rangesBySymbolName = useRegex
+		? regexRanges(editor)
+		: rangesByName(tokensData!, legend!, editor)
 	Object.keys(rangesBySymbolName).forEach((name, index) => {
 		const ranges = rangesBySymbolName[name]
 		const colorIndex = colorIndexOfSymbol(name, index)
