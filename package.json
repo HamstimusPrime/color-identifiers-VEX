@@ -1,13 +1,13 @@
 {
-  "name": "vscode-color-identifiers-mode",
+  "name": "vscode-color-identifiers-VEX",
   "displayName": "Color Identifiers",
   "description": "Gives each identifier a distinct color.",
   "version": "1.4.0",
   "license": "GPL-3.0-or-later",
-  "publisher": "MatthewNespor",
+  "publisher": "Mohammed",
   "repository": {
     "type": "git",
-    "url": "https://www.github.com/mnespor/vscode-color-identifiers-mode.git"
+    "url": "https://github.com/HamstimusPrime/color-identifiers-VEX"
   },
   "icon": "images/icon.png",
   "engines": {
@@ -25,10 +25,27 @@
     "rainbow"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onCommand:colorIdentifiersMode.shuffleColors",
+    "onCommand:colorIdentifiersMode.shuffleVariableColor",
+    "onCommand:colorIdentifiersMode.resetVariableColors"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "commands": [
+      {
+        "command": "colorIdentifiersMode.shuffleColors",
+        "title": "Color Identifiers: Shuffle Colors"
+      },
+      {
+        "command": "colorIdentifiersMode.shuffleVariableColor",
+        "title": "Color Identifiers: Shuffle Color of This Variable"
+      },
+      {
+        "command": "colorIdentifiersMode.resetVariableColors",
+        "title": "Color Identifiers: Reset Variable Colors"
+      }
+    ],
     "configuration": {
       "title": "Color Identifiers",
       "properties": {
@@ -73,6 +90,43 @@
           "type": "array",
           "default": [],
           "markdownDescription": "Don't colorize files in these [languages](https://code.visualstudio.com/docs/languages/identifiers#_known-language-identifiers)."
+        },
+        "colorIdentifiersMode.regexLanguages": {
+          "type": "array",
+          "default": [
+            "vex"
+          ],
+          "markdownDescription": "Languages with no semantic tokens. For these, variables are found with text patterns (VEX syntax)."
+        },
+        "colorIdentifiersMode.regexIgnoredNames": {
+          "type": "array",
+          "default": [
+            "P",
+            "N",
+            "Cd",
+            "Alpha",
+            "v",
+            "id",
+            "pscale",
+            "up",
+            "orient",
+            "rest",
+            "uv",
+            "age",
+            "life",
+            "ptnum",
+            "vtxnum",
+            "primnum",
+            "elemnum",
+            "numpt",
+            "numvtx",
+            "numprim",
+            "numelem",
+            "Frame",
+            "Time",
+            "TimeInc"
+          ],
+          "markdownDescription": "For languages in `regexLanguages`: names that are not colored by this extension. Their own syntax color stays."
         },
         "colorIdentifiersMode.method": {
           "type": "string",

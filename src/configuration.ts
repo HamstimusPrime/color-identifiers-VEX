@@ -16,6 +16,8 @@ export function updateConfiguration() {
     const configuration = vscode.workspace.getConfiguration('colorIdentifiersMode')
     tokenKinds = new Set(configuration.get('tokenKinds') ?? [])
     ignoredLanguages = new Set(configuration.get('ignoredLanguages') ?? [])
+	regexLanguages = new Set(configuration.get('regexLanguages') ?? [])
+	regexIgnoredNames = new Set(configuration.get('regexIgnoredNames') ?? [])
 	method = configuration.get('method') ?? Method.sequential
 	paletteMode = configuration.get('paletteMode') ?? PaletteMode.automatic
 	bigFileSize = configuration.get('ignoredFileSize') ?? 102400
@@ -44,8 +46,15 @@ export function generatePalette() {
 let paletteMode = PaletteMode.automatic
 export let tokenKinds: Set<string> = new Set(['variable', 'parameter', 'property'])
 export let ignoredLanguages: Set<string> = new Set()
+export let regexLanguages: Set<string> = new Set(['vex'])
+export let regexIgnoredNames: Set<string> = new Set()
 export let method: string = Method.sequential
 export let bigFileSize: number = 102400
+export let seed: number = 0
+
+export function shuffleSeed() {
+	seed = Math.floor(Math.random() * 2147483647)
+}
 export let colors = [
 	'#FF00FF'
 ].map(color => vscode.window.createTextEditorDecorationType({ color }))
