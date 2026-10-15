@@ -7,7 +7,7 @@
   "publisher": "Mohammed",
   "repository": {
     "type": "git",
-    "url": "https://www.github.com/mnespor/vscode-color-identifiers-mode.git"
+    "url": "https://github.com/HamstimusPrime/color-identifiers-VEX"
   },
   "icon": "images/icon.png",
   "engines": {
@@ -97,6 +97,36 @@
             "vex"
           ],
           "markdownDescription": "Languages with no semantic tokens. For these, variables are found with text patterns (VEX syntax)."
+        },
+        "colorIdentifiersMode.regexIgnoredNames": {
+          "type": "array",
+          "default": [
+            "P",
+            "N",
+            "Cd",
+            "Alpha",
+            "v",
+            "id",
+            "pscale",
+            "up",
+            "orient",
+            "rest",
+            "uv",
+            "age",
+            "life",
+            "ptnum",
+            "vtxnum",
+            "primnum",
+            "elemnum",
+            "numpt",
+            "numvtx",
+            "numprim",
+            "numelem",
+            "Frame",
+            "Time",
+            "TimeInc"
+          ],
+          "markdownDescription": "For languages in `regexLanguages`: names that are not colored by this extension. Their own syntax color stays."
         },
         "colorIdentifiersMode.method": {
           "type": "string",
