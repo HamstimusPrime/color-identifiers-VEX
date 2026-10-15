@@ -48,6 +48,11 @@ export let ignoredLanguages: Set<string> = new Set()
 export let regexLanguages: Set<string> = new Set(['vex'])
 export let method: string = Method.sequential
 export let bigFileSize: number = 102400
+export let seed: number = 0
+
+export function shuffleSeed() {
+	seed = Math.floor(Math.random() * 2147483647)
+}
 export let colors = [
 	'#FF00FF'
 ].map(color => vscode.window.createTextEditorDecorationType({ color }))

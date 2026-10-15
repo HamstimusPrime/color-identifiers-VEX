@@ -25,10 +25,27 @@
     "rainbow"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onCommand:colorIdentifiersMode.shuffleColors",
+    "onCommand:colorIdentifiersMode.shuffleVariableColor",
+    "onCommand:colorIdentifiersMode.resetVariableColors"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "commands": [
+      {
+        "command": "colorIdentifiersMode.shuffleColors",
+        "title": "Color Identifiers: Shuffle Colors"
+      },
+      {
+        "command": "colorIdentifiersMode.shuffleVariableColor",
+        "title": "Color Identifiers: Shuffle Color of This Variable"
+      },
+      {
+        "command": "colorIdentifiersMode.resetVariableColors",
+        "title": "Color Identifiers: Reset Variable Colors"
+      }
+    ],
     "configuration": {
       "title": "Color Identifiers",
       "properties": {

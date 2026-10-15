@@ -1,0 +1,165 @@
+diff --git a/package.json b/package.json
+index 93bad77..51e7a31 100644
+--- a/package.json
++++ b/package.json
+@@ -26,7 +26,9 @@
+   ],
+   "activationEvents": [
+     "onStartupFinished",
+-    "onCommand:colorIdentifiersMode.shuffleColors"
++    "onCommand:colorIdentifiersMode.shuffleColors",
++    "onCommand:colorIdentifiersMode.shuffleVariableColor",
++    "onCommand:colorIdentifiersMode.resetVariableColors"
+   ],
+   "main": "./out/extension.js",
+   "contributes": {
+@@ -34,6 +36,14 @@
+       {
+         "command": "colorIdentifiersMode.shuffleColors",
+         "title": "Color Identifiers: Shuffle Colors"
++      },
++      {
++        "command": "colorIdentifiersMode.shuffleVariableColor",
++        "title": "Color Identifiers: Shuffle Color of This Variable"
++      },
++      {
++        "command": "colorIdentifiersMode.resetVariableColors",
++        "title": "Color Identifiers: Reset Variable Colors"
+       }
+     ],
+     "configuration": {
+diff --git a/src/colorize.ts b/src/colorize.ts
+index 592f085..3c2ac41 100644
+--- a/src/colorize.ts
++++ b/src/colorize.ts
+@@ -6,7 +6,12 @@ import { colors, ignoredLanguages, regexLanguages, method, Method, bigFileSize,
+ 
+ let rangeLists: vscode.Range[][] = colors.map(_ => [])
+ 
++// Fixed colors chosen by the user for single names. Key: name. Value: color index.
++const colorOverrides = new Map<string, number>()
++
+ function colorIndexOfSymbol(symbolName: string, symbolIndex: number): number {
++	const override = colorOverrides.get(symbolName)
++	if (override !== undefined) { return override % rangeLists.length }
+ 	switch(method) {
+ 		case Method.hash:
+ 			return murmurhash.v3(symbolName, seed) % rangeLists.length
+@@ -16,21 +21,55 @@ function colorIndexOfSymbol(symbolName: string, symbolIndex: number): number {
+ 	}
+ }
+ 
+-export async function colorize(editor: vscode.TextEditor): Promise<boolean> {
++type Found =
++	| { kind: 'skip' }
++	| { kind: 'retry' }
++	| { kind: 'ok', ranges: Record<string, vscode.Range[]> }
++
++async function findRanges(editor: vscode.TextEditor): Promise<Found> {
+ 	const uri = editor.document.uri
+-	if (uri == null || ignoredLanguages.has(editor.document.languageId)) { return true }
++	if (uri == null || ignoredLanguages.has(editor.document.languageId)) { return { kind: 'skip' } }
+ 	const stat = await vscode.workspace.fs.stat(uri)
+-	if (stat.size > bigFileSize) { return true }
++	if (stat.size > bigFileSize) { return { kind: 'skip' } }
+ 	const legend: vscode.SemanticTokensLegend | undefined = await vscode.commands.executeCommand('vscode.provideDocumentSemanticTokensLegend', uri)
+ 	const tokensData: vscode.SemanticTokens | undefined = await vscode.commands.executeCommand('vscode.provideDocumentSemanticTokens', uri)
+-	vscode.window.activeColorTheme
+-	rangeLists = colors.map(_ => [])
+ 	const hasTokens = tokensData != null && legend != null && tokensData.data.length > 0
+ 	const useRegex = !hasTokens && regexLanguages.has(editor.document.languageId)
+-	if (!hasTokens && !useRegex) { return false }
+-	const rangesBySymbolName = useRegex
+-		? regexRanges(editor)
+-		: rangesByName(tokensData!, legend!, editor)
++	if (!hasTokens && !useRegex) { return { kind: 'retry' } }
++	return {
++		kind: 'ok',
++		ranges: useRegex ? regexRanges(editor) : rangesByName(tokensData!, legend!, editor)
++	}
++}
++
++export function clearColorOverrides() {
++	colorOverrides.clear()
++}
++
++/**
++ * Gives the name under the text cursor a new fixed color that differs from its current color.
++ * Returns the name, or undefined if the cursor is not on a colored name.
++ */
++export async function shuffleSymbolAtCursor(editor: vscode.TextEditor): Promise<string | undefined> {
++	const found = await findRanges(editor)
++	if (found.kind !== 'ok') { return undefined }
++	const position = editor.selection.active
++	const names = Object.keys(found.ranges)
++	const name = names.find(n => found.ranges[n].some(range => range.contains(position)))
++	if (name === undefined || colors.length < 2) { return undefined }
++	rangeLists = colors.map(_ => [])
++	const current = colorIndexOfSymbol(name, names.indexOf(name))
++	const next = (current + 1 + Math.floor(Math.random() * (colors.length - 1))) % colors.length
++	colorOverrides.set(name, next)
++	return name
++}
++
++export async function colorize(editor: vscode.TextEditor): Promise<boolean> {
++	const found = await findRanges(editor)
++	if (found.kind === 'skip') { return true }
++	rangeLists = colors.map(_ => [])
++	if (found.kind === 'retry') { return false }
++	const rangesBySymbolName = found.ranges
+ 	Object.keys(rangesBySymbolName).forEach((name, index) => {
+ 		const ranges = rangesBySymbolName[name]
+ 		const colorIndex = colorIndexOfSymbol(name, index)
+diff --git a/src/extension.ts b/src/extension.ts
+index 24fea1a..dab7c4f 100644
+--- a/src/extension.ts
++++ b/src/extension.ts
+@@ -1,6 +1,6 @@
+ import * as vscode from 'vscode'
+ import { debounce } from './editorDebounce'
+-import { colorize } from './colorize'
++import { colorize, shuffleSymbolAtCursor, clearColorOverrides } from './colorize'
+ import { updateConfiguration, shuffleSeed } from './configuration'
+ import { generatePalette } from "./configuration"
+ 
+@@ -32,16 +32,38 @@ function handleTextDocumentChange(event: vscode.TextDocumentChangeEvent) {
+ 	}
+ }
+ 
+-async function shuffleColors() {
+-	shuffleSeed()
++async function recolorAll() {
+ 	// One editor at a time: colorize() keeps shared state while it runs.
+ 	for (const editor of vscode.window.visibleTextEditors) {
+ 		await colorize(editor)
+ 	}
+ }
+ 
++async function shuffleColors() {
++	shuffleSeed()
++	await recolorAll()
++}
++
++async function shuffleVariableColor() {
++	const editor = vscode.window.activeTextEditor
++	if (editor == null) { return }
++	const name = await shuffleSymbolAtCursor(editor)
++	if (name === undefined) {
++		vscode.window.showInformationMessage('Put the text cursor on a variable name that has a color.')
++		return
++	}
++	await recolorAll()
++}
++
++async function resetVariableColors() {
++	clearColorOverrides()
++	await recolorAll()
++}
++
+ export function activate(context: vscode.ExtensionContext) {
+ 	context.subscriptions.push(vscode.commands.registerCommand('colorIdentifiersMode.shuffleColors', shuffleColors))
++	context.subscriptions.push(vscode.commands.registerCommand('colorIdentifiersMode.shuffleVariableColor', shuffleVariableColor))
++	context.subscriptions.push(vscode.commands.registerCommand('colorIdentifiersMode.resetVariableColors', resetVariableColors))
+ 	updateConfiguration()
+ 	context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(updateConfiguration))
+ 	context.subscriptions.push(vscode.window.onDidChangeVisibleTextEditors(handleVisibleEditorsChange))

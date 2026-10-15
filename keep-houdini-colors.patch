@@ -1,0 +1,80 @@
+diff --git a/package.json b/package.json
+index 51e7a31..9894090 100644
+--- a/package.json
++++ b/package.json
+@@ -96,6 +96,11 @@
+           "default": ["vex"],
+           "markdownDescription": "Languages with no semantic tokens. For these, variables are found with text patterns (VEX syntax)."
+         },
++        "colorIdentifiersMode.regexIgnoredNames": {
++          "type": "array",
++          "default": ["P", "N", "Cd", "Alpha", "v", "id", "pscale", "up", "orient", "rest", "uv", "age", "life", "ptnum", "vtxnum", "primnum", "elemnum", "numpt", "numvtx", "numprim", "numelem", "Frame", "Time", "TimeInc"],
++          "markdownDescription": "For languages in `regexLanguages`: names that are not colored by this extension. Their own syntax color stays."
++        },
+         "colorIdentifiersMode.method": {
+           "type": "string",
+           "default": "sequential",
+diff --git a/src/configuration.ts b/src/configuration.ts
+index 08f4b62..4ee5731 100644
+--- a/src/configuration.ts
++++ b/src/configuration.ts
+@@ -17,6 +17,7 @@ export function updateConfiguration() {
+     tokenKinds = new Set(configuration.get('tokenKinds') ?? [])
+     ignoredLanguages = new Set(configuration.get('ignoredLanguages') ?? [])
+ 	regexLanguages = new Set(configuration.get('regexLanguages') ?? [])
++	regexIgnoredNames = new Set(configuration.get('regexIgnoredNames') ?? [])
+ 	method = configuration.get('method') ?? Method.sequential
+ 	paletteMode = configuration.get('paletteMode') ?? PaletteMode.automatic
+ 	bigFileSize = configuration.get('ignoredFileSize') ?? 102400
+@@ -46,6 +47,7 @@ let paletteMode = PaletteMode.automatic
+ export let tokenKinds: Set<string> = new Set(['variable', 'parameter', 'property'])
+ export let ignoredLanguages: Set<string> = new Set()
+ export let regexLanguages: Set<string> = new Set(['vex'])
++export let regexIgnoredNames: Set<string> = new Set()
+ export let method: string = Method.sequential
+ export let bigFileSize: number = 102400
+ export let seed: number = 0
+diff --git a/src/regexTokens.ts b/src/regexTokens.ts
+index 7b2a38b..e047c0e 100644
+--- a/src/regexTokens.ts
++++ b/src/regexTokens.ts
+@@ -1,9 +1,11 @@
+ import * as vscode from 'vscode'
+ import { pushValue } from './pushValue'
++import { regexIgnoredNames } from './configuration'
+ 
+ const TYPES = 'int|float|vector2|vector4|vector|matrix2|matrix3|matrix|string|dict|bsdf|void|struct'
++const TYPE_WORD = new RegExp(`^(?:${TYPES})$`)
+ // Declaration: a type, optional [], then a name. Covers "float a", "vector[] pts", "float a, b = 1".
+-const DECL = new RegExp(`\\b(?:${TYPES})\\s*(?:\\[\\])?\\s+([A-Za-z_]\\w*)`, 'g')
++const DECL = new RegExp(`\\b(?:${TYPES})\\s*(?:\\[\\])?\\s+([A-Za-z_]\\w*)\\b(?!\\s*\\()`, 'g')
+ // Extra names in a comma list on the same declaration, e.g. "float a, b, c;"
+ const DECL_LINE = new RegExp(`\\b(?:${TYPES})\\s*(?:\\[\\])?\\s+([^;(){}]*)`, 'g')
+ // Attribute: optional type prefix, "@", then a name. Example: v@P, f@mass, @Cd.
+@@ -26,12 +28,16 @@ export function regexRanges(editor: vscode.TextEditor): Record<string, vscode.Ra
+ 	let m: RegExpExecArray | null
+ 	while ((m = DECL.exec(text)) !== null) { locals.add(m[1]) }
+ 	while ((m = DECL_LINE.exec(text)) !== null) {
+-		// split "a = 1, b = foo(x)" on top-level commas and take the first word of each part
++		// "float myfunc(" is a function definition, not a variable
++		const followedByParen = text[m.index + m[0].length] === '('
++		if (followedByParen && !m[1].includes('=')) { continue }
++		// split "a = 1, b = foo(x)" on commas and take the first word of each part
+ 		m[1].split(',').forEach(part => {
+ 			const name = /^\s*([A-Za-z_]\w*)/.exec(part)?.[1]
+-			if (name) { locals.add(name) }
++			if (name && !TYPE_WORD.test(name)) { locals.add(name) }
+ 		})
+ 	}
++	regexIgnoredNames.forEach(name => locals.delete(name))
+ 
+ 	if (locals.size > 0) {
+ 		const names = Array.from(locals).join('|')
+@@ -43,6 +49,7 @@ export function regexRanges(editor: vscode.TextEditor): Record<string, vscode.Ra
+ 	}
+ 
+ 	while ((m = ATTR.exec(text)) !== null) {
++		if (regexIgnoredNames.has(m[1])) { continue }
+ 		const nameStart = m.index + m[0].length - m[1].length
+ 		const start = doc.positionAt(nameStart)
+ 		pushValue(accumulator, '@' + m[1], new vscode.Range(start, start.translate(0, m[1].length)))
